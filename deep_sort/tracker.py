@@ -89,7 +89,7 @@ class Tracker:
             track.features = []
         self.metric.partial_fit(
             np.asarray(features), np.asarray(targets), active_targets)
-
+        return matches, unmatched_tracks, unmatched_detections
     def _match(self, detections):
 
         def gated_metric(tracks, dets, track_indices, detection_indices):
