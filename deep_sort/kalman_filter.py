@@ -37,8 +37,8 @@ class KalmanFilter(object):
 
     """
 
-    def __init__(self):
-        ndim, dt = 4, 1.
+    def __init__(self, ndim = 4, dt =  1.):
+        
 
         # Create Kalman filter model matrices.
         self._motion_mat = np.eye(2 * ndim, 2 * ndim)

@@ -1,6 +1,9 @@
 # vim: expandtab:ts=4:sw=4
 
 
+from Modulos.Tracking.deep_sort.deep_sort.detection import Detection
+
+
 class TrackState:
     """
     Enumeration type for the single target track state. Newly created tracks are
@@ -64,7 +67,7 @@ class Track:
     """
 
     def __init__(self, mean, covariance, track_id, n_init, max_age,
-                 feature=None):
+                 detection=None):
         self.mean = mean
         self.covariance = covariance
         self.track_id = track_id
@@ -74,12 +77,15 @@ class Track:
 
         self.state = TrackState.Tentative
         self.features = []
-        if feature is not None:
-            self.features.append(feature)
-
+        self.detections = []
+        if detection is not None:
+            detection.identity = self.track_id
+            self.features.append(detection.feature)
+            self.detections.append(detection)
         self._n_init = n_init
         self._max_age = max_age
-
+        self.prediction = None
+        self._update_prediction()
     def to_tlwh(self):
         """Get current position in bounding box format `(top left x, top left y,
         width, height)`.
@@ -108,7 +114,8 @@ class Track:
         ret = self.to_tlwh()
         ret[2:] = ret[:2] + ret[2:]
         return ret
-
+    def _update_prediction(self):
+        self.prediction = Detection(tlwh=self.to_tlwh(),identity=self.track_id,confidence=-1,prediction=True) 
     def predict(self, kf):
         """Propagate the state distribution to the current time step using a
         Kalman filter prediction step.
@@ -122,6 +129,7 @@ class Track:
         self.mean, self.covariance = kf.predict(self.mean, self.covariance)
         self.age += 1
         self.time_since_update += 1
+        self._update_prediction()
 
     def update(self, kf, detection):
         """Perform Kalman filter measurement update step and update the feature
@@ -138,7 +146,8 @@ class Track:
         self.mean, self.covariance = kf.update(
             self.mean, self.covariance, detection.to_xyah())
         self.features.append(detection.feature)
-
+        detection.identity = self.track_id
+        self.detections.append(detection)
         self.hits += 1
         self.time_since_update = 0
         if self.state == TrackState.Tentative and self.hits >= self._n_init:
@@ -151,7 +160,8 @@ class Track:
             self.state = TrackState.Deleted
         elif self.time_since_update > self._max_age:
             self.state = TrackState.Deleted
-
+        
+        self.detections.append(self.prediction)
     def is_tentative(self):
         """Returns True if this track is tentative (unconfirmed).
         """
