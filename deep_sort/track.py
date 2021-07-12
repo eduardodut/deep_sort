@@ -115,7 +115,25 @@ class Track:
         ret[2:] = ret[:2] + ret[2:]
         return ret
     def _update_prediction(self):
-        self.prediction = Detection(tlwh=self.to_tlwh(),identity=self.track_id,confidence=-1,prediction=True) 
+        
+        if self.time_since_update > 1:
+            prev_bbox = self.prediction.to_tlbr()
+            prev_skeleton = self.prediction.skeleton.copy()
+        else:
+            prev_bbox = self.detections[-1].to_tlbr()
+            prev_skeleton = self.detections[-1].skeleton.copy()
+        
+        x1,y1,x2,y2 = self.to_tlbr()
+        x_center_pred = (x2-x1) // 2
+        y_center_pred = (y2-y1) // 2
+        x1,y1,x2,y2 = prev_bbox
+        x_center_prev_det = (x2-x1) // 2
+        y_center_prev_det = (y2-y1) // 2
+        
+        x_offset,y_offset = x_center_pred - x_center_prev_det , y_center_pred - y_center_prev_det
+
+        prev_skeleton[:,:-1] += [y_offset,x_offset]
+        self.prediction = Detection(tlwh=self.to_tlwh(),identity=self.track_id,skeleton=prev_skeleton,confidence=-1,prediction=True) 
     def predict(self, kf):
         """Propagate the state distribution to the current time step using a
         Kalman filter prediction step.
